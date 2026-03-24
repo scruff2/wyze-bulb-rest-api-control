@@ -265,15 +265,20 @@ Stop the background process:
 
 ### 3. Test the API
 
+Use the examples that match your shell:
+
+- `PowerShell`: prefer `Invoke-RestMethod`
+- `cmd.exe`: use the `curl` examples below with escaped double quotes inside JSON bodies
+
 Health:
 
 ```powershell
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8787/status | Select-Object -ExpandProperty Content
 ```
 
-`curl` health example:
+`cmd.exe` `curl` health example:
 
-```bash
+```cmd
 curl http://127.0.0.1:8787/status
 ```
 
@@ -295,7 +300,7 @@ On:
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/on
 ```
 
-```bash
+```cmd
 curl -X POST http://127.0.0.1:8787/on
 ```
 
@@ -320,10 +325,8 @@ Brightness:
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/brightness -ContentType 'application/json' -Body '{"brightness":40}'
 ```
 
-```bash
-curl -X POST http://127.0.0.1:8787/brightness \
-  -H "Content-Type: application/json" \
-  -d '{"brightness":40}'
+```cmd
+curl -X POST http://127.0.0.1:8787/brightness -H "Content-Type: application/json" -d "{\"brightness\":40}"
 ```
 
 Color temperature:
@@ -333,10 +336,8 @@ Invoke-RestMethod -Method Post http://127.0.0.1:8787/color-temperature -ContentT
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/color-temperature -ContentType 'application/json' -Body '{"color_temperature":6500}'
 ```
 
-```bash
-curl -X POST http://127.0.0.1:8787/color-temperature \
-  -H "Content-Type: application/json" \
-  -d '{"color_temperature":2700}'
+```cmd
+curl -X POST http://127.0.0.1:8787/color-temperature -H "Content-Type: application/json" -d "{\"color_temperature\":2700}"
 ```
 
 Generic property write:
@@ -405,8 +406,8 @@ Invoke-RestMethod -Method Get 'http://127.0.0.1:8787/state'
 Invoke-RestMethod -Method Get 'http://127.0.0.1:8787/state?device=living-room&pid=P3&pid=P1501&pid=P1502'
 ```
 
-```bash
-curl 'http://127.0.0.1:8787/state?device=living-room&pid=P3&pid=P1501&pid=P1502'
+```cmd
+curl "http://127.0.0.1:8787/state?device=living-room&pid=P3&pid=P1501&pid=P1502"
 ```
 
 Run a group action:
