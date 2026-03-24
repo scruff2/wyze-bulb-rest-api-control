@@ -1,5 +1,5 @@
 {
   "device_mac": "A1B2C3D4E5F6",
   "access_token": "replace-with-your-live-token",
-  "phone_id": "any-stable-string-or-guid"
+  "phone_id": "my-wyze-rest-api"
 }

@@ -122,7 +122,7 @@ Absolute minimum working example:
 {
   "device_mac": "A1B2C3D4E5F6",
   "access_token": "replace-with-your-live-token",
-  "phone_id": "any-stable-string-or-guid"
+  "phone_id": "my-wyze-rest-api"
 }
 ```
 
@@ -131,7 +131,7 @@ Test-based shortcut:
 - use the real `device_mac`
 - use the real `access_token`
 - for the validated `WLPA19` path, a random `phone_id` worked in live testing
-- use any stable string or GUID if you do not have the original phone value
+- if you do not have the original phone value, set `phone_id` to a fixed value such as `"my-wyze-rest-api"`
 
 The file `local_config.json` is ignored by git.
 
@@ -213,7 +213,10 @@ Live test result for this repo's validated path:
 
 - a random `phone_id` still worked
 
-So for fastest setup, `phone_id` can be any stable string or GUID.
+So for fastest setup, `phone_id` can be any fixed value, for example:
+
+- `my-wyze-rest-api`
+- `living-room-api`
 
 #### `app_name`, `app_version`, `phone_system_type`, `sc`, `sv`
 

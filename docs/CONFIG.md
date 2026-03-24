@@ -33,7 +33,7 @@ Absolute minimum working example:
 {
   "device_mac": "AABBCCDDEEFF",
   "access_token": "replace-with-your-live-token",
-  "phone_id": "any-stable-string-or-guid"
+  "phone_id": "my-wyze-rest-api"
 }
 ```
 
@@ -41,7 +41,7 @@ For the validated original white bulb path in this repo:
 
 - `device_model` is usually not required because the code defaults it to `WLPA19`
 - `phone_id` did not appear to be strictly enforced in live testing
-- a stable arbitrary string or GUID worked for `phone_id`
+- a fixed value like `my-wyze-rest-api` worked for `phone_id`
 
 ## Advanced Override Fields
 
@@ -132,7 +132,7 @@ So the fastest setup is:
 
 - use the real `access_token`
 - use the real `device_mac`
-- use any stable arbitrary string or GUID for `phone_id` if needed
+- set `phone_id` to a fixed value such as `my-wyze-rest-api` if needed
 
 ## Optional Local Structures
 
@@ -230,7 +230,7 @@ Bundle one or more commands against a device or group:
 {
   "device_mac": "AABBCCDDEEFF",
   "access_token": "replace-with-your-live-token",
-  "phone_id": "any-stable-string-or-guid"
+  "phone_id": "my-wyze-rest-api"
 }
 ```
 
