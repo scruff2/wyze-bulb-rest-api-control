@@ -18,6 +18,10 @@ This project is best understood as a local automation bridge:
 - your automations talk to a local REST API
 - this tool translates those requests into Wyze cloud-backed bulb commands
 
+Detailed config help:
+
+- [docs/CONFIG.md](docs/CONFIG.md)
+
 ## Current Capability
 
 Validated bulb controls:
@@ -92,6 +96,10 @@ Recommended fields:
 The file `local_config.json` is ignored by git.
 
 ### How to find the required values
+
+For a focused setup guide, see:
+
+- [docs/CONFIG.md](docs/CONFIG.md)
 
 You need three categories of data:
 
