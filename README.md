@@ -91,6 +91,131 @@ Recommended fields:
 
 The file `local_config.json` is ignored by git.
 
+### How to find the required values
+
+You need three categories of data:
+
+1. device alias and model information
+2. Wyze session information
+3. optional groups / presets / scenes
+
+#### `devices.<alias>.device_mac`
+
+This is the bulb MAC without separators.
+
+Ways to find it:
+
+- from your router's DHCP or client list
+- from a local ARP / neighbor table after the bulb is online
+- from a previously captured Wyze hook log if you already instrumented the app
+
+Windows examples:
+
+```powershell
+Get-NetNeighbor | Where-Object { $_.IPAddress -like '10.*' }
+arp -a
+```
+
+Use the bulb's MAC in `AABBCCDDEEFF` form, not `AA-BB-CC-DD-EE-FF`.
+
+#### `devices.<alias>.device_model`
+
+For the original white Wyze Bulb used in this project, the model is:
+
+- `WLPA19`
+
+If you are using a different Wyze bulb model, you must discover the matching model string from your own app traffic or device metadata.
+
+#### `access_token`
+
+This comes from the authenticated Wyze mobile app session.
+
+Most practical path used in this project:
+
+1. extract the Wyze Android APK
+2. patch it to log outbound request bodies
+3. capture a control action
+4. copy the `access_token` from the logged JSON body
+
+Fallback for users who already have a captured hook log:
+
+- place the log somewhere local and pass `--hook-log`
+- the tool can extract `access_token` from `E WYZE_HOOK: BODY=...` lines automatically
+
+If you paste `access_token` directly into `local_config.json`, treat that file as sensitive.
+
+#### `phone_id`
+
+This also comes from the logged Wyze request body.
+
+It appears in the same JSON object as `access_token`.
+
+Fallback behavior:
+
+- if `phone_id` is not present in `local_config.json`
+- and a compatible hook log is provided
+- the tool can extract it automatically
+
+#### `app_name`, `app_version`, `phone_system_type`, `sc`, `sv`
+
+Defaults are already included in the example config and code for the validated original-bulb path.
+
+You usually only need to change them if:
+
+- Wyze changes the app/API behavior
+- you are targeting a different product/app path
+
+#### `groups`
+
+This is just your own local naming layer.
+
+Example:
+
+```json
+{
+  "groups": {
+    "all": {
+      "devices": ["living-room", "desk-lamp"]
+    }
+  }
+}
+```
+
+#### `presets`
+
+These are your own local brightness shortcuts.
+
+Example:
+
+```json
+{
+  "presets": {
+    "night": 5,
+    "dim": 15,
+    "bright": 85
+  }
+}
+```
+
+#### `scenes`
+
+These are your own local command bundles.
+
+Example:
+
+```json
+{
+  "scenes": {
+    "evening": {
+      "target": "all",
+      "commands": [
+        { "command": "brightness", "value": 25 }
+      ]
+    }
+  }
+}
+```
+
 ### 2. Start the local API
 
 ```powershell
