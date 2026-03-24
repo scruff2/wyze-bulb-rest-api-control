@@ -36,23 +36,32 @@ Validated bulb controls:
 Validated local REST endpoints:
 
 - `GET /status`
+- `GET /health`
+- `GET /capabilities`
 - `GET /devices`
 - `GET /groups`
+- `GET /presets`
 - `GET /scenes`
+- `GET /scene/<name>`
 - `GET /state`
 - `POST /on`
 - `POST /off`
+- `POST /toggle`
 - `POST /night`
 - `POST /dim`
 - `POST /bright`
+- `POST /preset/run`
 - `POST /group/on`
 - `POST /group/off`
 - `POST /group/brightness`
 - `POST /scene/run`
 - `POST /scene/evening`
 - `POST /scene/off`
+- `POST /scene/validate`
 - `POST /brightness`
 - `POST /color-temperature`
+- `POST /state/apply`
+- `POST /transition`
 - `POST /properties`
 
 Default local bind:
@@ -268,6 +277,18 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8787/status | Select-Object 
 curl http://127.0.0.1:8787/status
 ```
 
+Local health:
+
+```powershell
+Invoke-RestMethod -Method Get http://127.0.0.1:8787/health
+```
+
+Capabilities:
+
+```powershell
+Invoke-RestMethod -Method Get http://127.0.0.1:8787/capabilities
+```
+
 On:
 
 ```powershell
@@ -290,6 +311,7 @@ Preset brightness:
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/night
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/dim
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/bright
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/preset/run -ContentType 'application/json' -Body '{"preset":"bright"}'
 ```
 
 Brightness:
@@ -323,6 +345,25 @@ Generic property write:
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/properties -ContentType 'application/json' -Body '{"device":"living-room","properties":[{"pid":"P1502","pvalue":"2700"}]}'
 ```
 
+Apply multiple state values in one request:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/state/apply -ContentType 'application/json' -Body '{"device":"living-room","brightness":20,"color_temperature":2700}'
+```
+
+Toggle power:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/toggle
+```
+
+Run a local transition:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/transition -ContentType 'application/json' -Body '{"brightness":{"from":10,"to":80},"duration_ms":3000,"steps":6}'
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/transition -ContentType 'application/json' -Body '{"color_temperature":{"from":2700,"to":6500},"duration_ms":3000,"steps":6}'
+```
+
 List configured aliases:
 
 ```powershell
@@ -347,6 +388,14 @@ List configured scenes:
 
 ```powershell
 Invoke-RestMethod -Method Get http://127.0.0.1:8787/scenes
+Invoke-RestMethod -Method Get http://127.0.0.1:8787/scene/evening
+```
+
+List effective presets:
+
+```powershell
+Invoke-RestMethod -Method Get http://127.0.0.1:8787/presets
+Invoke-RestMethod -Method Get 'http://127.0.0.1:8787/presets?device=living-room'
 ```
 
 Read current state:
@@ -373,6 +422,7 @@ Run a scene:
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/scene/evening
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/scene/off
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/scene/run -ContentType 'application/json' -Body '{"scene":"evening"}'
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/scene/validate -ContentType 'application/json' -Body '{"scene":{"target":"all","commands":[{"command":"off"}]}}'
 ```
 
 ## Start At Logon

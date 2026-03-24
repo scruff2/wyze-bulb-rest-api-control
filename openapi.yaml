@@ -14,9 +14,34 @@ paths:
       responses:
         '200':
           description: OK
+  /health:
+    get:
+      summary: Local service health and runtime readiness
+      responses:
+        '200':
+          description: OK
+  /capabilities:
+    get:
+      summary: List supported control capabilities and ranges
+      responses:
+        '200':
+          description: OK
   /devices:
     get:
       summary: List configured device aliases
+      responses:
+        '200':
+          description: OK
+  /presets:
+    get:
+      summary: List effective presets for the default device or a specific alias
+      parameters:
+        - in: query
+          name: device
+          schema:
+            type: string
+          required: false
+          description: Optional configured device alias
       responses:
         '200':
           description: OK
@@ -29,6 +54,19 @@ paths:
   /scenes:
     get:
       summary: List configured scenes
+      responses:
+        '200':
+          description: OK
+  /scene/{name}:
+    get:
+      summary: Get a configured scene definition by name
+      parameters:
+        - in: path
+          name: name
+          schema:
+            type: string
+          required: true
+          description: Configured scene name
       responses:
         '200':
           description: OK
@@ -79,6 +117,18 @@ paths:
       responses:
         '200':
           description: OK
+  /toggle:
+    post:
+      summary: Toggle a device power state by first reading current state
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceTarget'
+      responses:
+        '200':
+          description: OK
   /night:
     post:
       summary: Apply the night preset to a device
@@ -115,6 +165,18 @@ paths:
       responses:
         '200':
           description: OK
+  /preset/run:
+    post:
+      summary: Run a preset by name for a device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresetTarget'
+      responses:
+        '200':
+          description: OK
   /brightness:
     post:
       summary: Set explicit brightness for a device
@@ -135,7 +197,31 @@ paths:
         content:
           application/json:
             schema:
-                      $ref: '#/components/schemas/ColorTemperatureTarget'
+              $ref: '#/components/schemas/ColorTemperatureTarget'
+      responses:
+        '200':
+          description: OK
+  /state/apply:
+    post:
+      summary: Apply power, brightness, and/or color temperature in one request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateApplyTarget'
+      responses:
+        '200':
+          description: OK
+  /transition:
+    post:
+      summary: Emulate a local brightness or color-temperature transition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
       responses:
         '200':
           description: OK
@@ -211,6 +297,18 @@ paths:
       responses:
         '200':
           description: OK
+  /scene/validate:
+    post:
+      summary: Validate a local scene definition without saving it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SceneValidationRequest'
+      responses:
+        '200':
+          description: OK
 components:
   schemas:
     DeviceTarget:
@@ -232,6 +330,17 @@ components:
           minimum: 1
           maximum: 100
           example: 40
+    PresetTarget:
+      type: object
+      required:
+        - preset
+      properties:
+        device:
+          type: string
+          example: living-room
+        preset:
+          type: string
+          example: bright
     GroupTarget:
       type: object
       required:
@@ -262,6 +371,26 @@ components:
         device:
           type: string
           example: living-room
+        color_temperature:
+          type: integer
+          minimum: 2700
+          maximum: 6500
+          example: 2700
+    StateApplyTarget:
+      type: object
+      properties:
+        device:
+          type: string
+          example: living-room
+        power:
+          type: string
+          enum: [on, off]
+          example: on
+        brightness:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 20
         color_temperature:
           type: integer
           minimum: 2700
@@ -301,3 +430,91 @@ components:
         scene:
           type: string
           example: evening
+    SceneValidationRequest:
+      type: object
+      required:
+        - scene
+      properties:
+        scene:
+          $ref: '#/components/schemas/SceneDefinition'
+    SceneDefinition:
+      type: object
+      required:
+        - target
+        - commands
+      properties:
+        target:
+          type: string
+          example: all
+        commands:
+          type: array
+          items:
+            $ref: '#/components/schemas/SceneCommand'
+    SceneCommand:
+      type: object
+      required:
+        - command
+      properties:
+        command:
+          type: string
+          enum: [on, off, brightness, color-temperature, properties]
+          example: brightness
+        value:
+          oneOf:
+            - type: integer
+            - type: string
+          example: 25
+        properties:
+          type: array
+          items:
+            $ref: '#/components/schemas/PropertyAssignment'
+    TransitionRequest:
+      type: object
+      properties:
+        device:
+          type: string
+          example: living-room
+        duration_ms:
+          type: integer
+          minimum: 0
+          example: 3000
+        steps:
+          type: integer
+          minimum: 1
+          example: 6
+        brightness:
+          $ref: '#/components/schemas/TransitionRangeBrightness'
+        color_temperature:
+          $ref: '#/components/schemas/TransitionRangeColorTemperature'
+    TransitionRangeBrightness:
+      type: object
+      required:
+        - from
+        - to
+      properties:
+        from:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 10
+        to:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 80
+    TransitionRangeColorTemperature:
+      type: object
+      required:
+        - from
+        - to
+      properties:
+        from:
+          type: integer
+          minimum: 2700
+          maximum: 6500
+          example: 2700
+        to:
+          type: integer
+          minimum: 2700
+          maximum: 6500
+          example: 6500

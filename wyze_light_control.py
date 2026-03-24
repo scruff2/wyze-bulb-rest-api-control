@@ -37,6 +37,18 @@ DEFAULT_TARGET_PID_LIST = [
     "P1507",
     "P1508",
 ]
+SUPPORTED_CAPABILITIES = {
+    "power": True,
+    "brightness": True,
+    "color_temperature": True,
+    "state_read": True,
+    "generic_properties": True,
+    "presets": True,
+    "groups": True,
+    "scenes": True,
+    "toggle": True,
+    "transition": True,
+}
 PLACEHOLDER_PREFIXES = (
     "replace-with-",
     "replace-with-your-",
@@ -529,6 +541,34 @@ def get_scene_config(config: dict, alias: str | None) -> dict:
     if alias and isinstance(scenes.get(alias), dict):
         return scenes[alias]
     return {}
+
+
+def validate_scene_definition(scene_name: str, scene_config: dict) -> None:
+    target = scene_config.get("target")
+    commands = scene_config.get("commands")
+    if not isinstance(target, str) or not target:
+        raise ValueError(f"scene '{scene_name}' is missing target")
+    if not isinstance(commands, list) or not commands:
+        raise ValueError(f"scene '{scene_name}' has no commands")
+    for item in commands:
+        if not isinstance(item, dict):
+            raise ValueError(f"scene '{scene_name}' contains an invalid command entry")
+        command = item.get("command")
+        value = item.get("value")
+        if command not in ("on", "off", "brightness", "color-temperature", "properties"):
+            raise ValueError(f"scene '{scene_name}' contains unsupported command '{command}'")
+        if command in ("brightness", "color-temperature") and not isinstance(value, int):
+            raise ValueError(f"scene '{scene_name}' command '{command}' requires integer value")
+        if command == "brightness" and not 1 <= value <= 100:
+            raise ValueError(f"scene '{scene_name}' brightness value must be between 1 and 100")
+        if command == "color-temperature" and not DEFAULT_COLOR_TEMPERATURE_MIN <= value <= DEFAULT_COLOR_TEMPERATURE_MAX:
+            raise ValueError(
+                f"scene '{scene_name}' color-temperature value must be between {DEFAULT_COLOR_TEMPERATURE_MIN} and {DEFAULT_COLOR_TEMPERATURE_MAX}"
+            )
+        if command == "properties":
+            properties = item.get("properties")
+            if not isinstance(properties, list) or not properties:
+                raise ValueError(f"scene '{scene_name}' properties command requires non-empty properties list")
 
 
 def send_request(url: str, payload: dict, timeout: float) -> tuple[int, str]:
