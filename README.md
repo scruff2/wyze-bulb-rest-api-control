@@ -112,7 +112,7 @@ Absolute minimum fields:
 
 - `device_mac`
 - `access_token`
-- `phone_id`
+- `phone_id` (This can be an arbitrary ID)
 
 Everything else is optional.
 
