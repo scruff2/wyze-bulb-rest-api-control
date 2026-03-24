@@ -2,6 +2,11 @@
 
 This guide explains how to populate `local_config.json` for `wyze-bulb-rest-api-control`.
 
+If you are testing the API from Windows:
+
+- use `Invoke-RestMethod` in PowerShell when possible
+- if you use `curl` from `cmd.exe`, JSON bodies must use escaped double quotes, not single quotes
+
 ## Start From The Example
 
 Create your local file:

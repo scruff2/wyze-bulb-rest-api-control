@@ -32,6 +32,8 @@ Validated bulb controls:
 - state read
 - color temperature
 - generic property writes
+- combined state apply
+- preset execution
 
 Validated local REST endpoints:
 
@@ -269,6 +271,8 @@ Use the examples that match your shell:
 
 - `PowerShell`: prefer `Invoke-RestMethod`
 - `cmd.exe`: use the `curl` examples below with escaped double quotes inside JSON bodies
+
+If you see `request body must be valid JSON` from `cmd.exe`, the most common cause is using single quotes around JSON instead of escaped double quotes.
 
 Health:
 
