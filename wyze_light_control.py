@@ -45,9 +45,13 @@ SUPPORTED_CAPABILITIES = {
     "generic_properties": True,
     "presets": True,
     "groups": True,
+    "group_presets": True,
+    "group_state_apply": True,
     "scenes": True,
     "toggle": True,
     "transition": True,
+    "config_summary": True,
+    "config_reload": True,
 }
 PLACEHOLDER_PREFIXES = (
     "replace-with-",

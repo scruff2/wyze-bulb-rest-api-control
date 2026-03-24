@@ -26,6 +26,12 @@ paths:
       responses:
         '200':
           description: OK
+  /config/summary:
+    get:
+      summary: Safe summary of loaded config aliases, groups, scenes, and preset availability
+      responses:
+        '200':
+          description: OK
   /devices:
     get:
       summary: List configured device aliases
@@ -177,6 +183,12 @@ paths:
       responses:
         '200':
           description: OK
+  /reload-config:
+    post:
+      summary: Reload local_config.json without restarting the server
+      responses:
+        '200':
+          description: OK
   /brightness:
     post:
       summary: Set explicit brightness for a device
@@ -273,6 +285,30 @@ paths:
       responses:
         '200':
           description: OK
+  /group/preset:
+    post:
+      summary: Apply a named preset to every device in a configured group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupPresetTarget'
+      responses:
+        '200':
+          description: OK
+  /group/state/apply:
+    post:
+      summary: Apply combined state values to every device in a configured group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupStateApplyTarget'
+      responses:
+        '200':
+          description: OK
   /scene/run:
     post:
       summary: Run a configured scene by name
@@ -363,6 +399,40 @@ components:
           minimum: 1
           maximum: 100
           example: 25
+    GroupPresetTarget:
+      type: object
+      required:
+        - group
+        - preset
+      properties:
+        group:
+          type: string
+          example: all
+        preset:
+          type: string
+          example: dim
+    GroupStateApplyTarget:
+      type: object
+      required:
+        - group
+      properties:
+        group:
+          type: string
+          example: all
+        power:
+          type: string
+          enum: [on, off]
+          example: on
+        brightness:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 25
+        color_temperature:
+          type: integer
+          minimum: 2700
+          maximum: 6500
+          example: 2700
     ColorTemperatureTarget:
       type: object
       required:

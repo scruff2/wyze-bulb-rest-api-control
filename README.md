@@ -40,6 +40,7 @@ Validated local REST endpoints:
 - `GET /status`
 - `GET /health`
 - `GET /capabilities`
+- `GET /config/summary`
 - `GET /devices`
 - `GET /groups`
 - `GET /presets`
@@ -53,9 +54,12 @@ Validated local REST endpoints:
 - `POST /dim`
 - `POST /bright`
 - `POST /preset/run`
+- `POST /reload-config`
 - `POST /group/on`
 - `POST /group/off`
 - `POST /group/brightness`
+- `POST /group/preset`
+- `POST /group/state/apply`
 - `POST /scene/run`
 - `POST /scene/evening`
 - `POST /scene/off`
@@ -298,6 +302,18 @@ Capabilities:
 Invoke-RestMethod -Method Get http://127.0.0.1:8787/capabilities
 ```
 
+Config summary:
+
+```powershell
+Invoke-RestMethod -Method Get http://127.0.0.1:8787/config/summary
+```
+
+Reload config:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/reload-config
+```
+
 On:
 
 ```powershell
@@ -419,6 +435,8 @@ Run a group action:
 ```powershell
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/group/off -ContentType 'application/json' -Body '{"group":"all"}'
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/group/brightness -ContentType 'application/json' -Body '{"group":"all","brightness":25}'
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/group/preset -ContentType 'application/json' -Body '{"group":"all","preset":"dim"}'
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/group/state/apply -ContentType 'application/json' -Body '{"group":"all","brightness":25,"color_temperature":2700}'
 ```
 
 Run a scene:

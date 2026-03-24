@@ -69,6 +69,9 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
         if parsed.path == "/capabilities":
             self.handle_capabilities()
             return
+        if parsed.path == "/config/summary":
+            self.handle_config_summary()
+            return
         if parsed.path == "/devices":
             self.handle_devices()
             return
@@ -115,8 +118,17 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                 brightness = self.get_preset_brightness_for_device(preset_name, device)
                 self.handle_command("brightness", brightness, device, preset_name=preset_name)
                 return
+            if parsed.path == "/reload-config":
+                self.handle_reload_config()
+                return
             if parsed.path in ("/group/on", "/group/off", "/group/brightness"):
                 self.handle_group_post(parsed.query, body, parsed.path)
+                return
+            if parsed.path == "/group/preset":
+                self.handle_group_preset(parsed.query, body)
+                return
+            if parsed.path == "/group/state/apply":
+                self.handle_group_state_apply(parsed.query, body)
                 return
             if parsed.path in ("/scene/run", "/scene/evening", "/scene/off"):
                 self.handle_scene_post(parsed.path, body)
@@ -168,6 +180,7 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                     "GET /status": "health check",
                     "GET /health": "local service health and config readiness",
                     "GET /capabilities": "list supported API capabilities",
+                    "GET /config/summary": "safe view of loaded aliases, groups, scenes, and presets",
                     "GET /devices": "list configured device aliases",
                     "GET /groups": "list configured groups",
                     "GET /presets": "list effective presets",
@@ -181,9 +194,12 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                     "POST /dim": {},
                     "POST /bright": {},
                     "POST /preset/run": {"preset": "night", "device": "device-alias"},
+                    "POST /reload-config": {},
                     "POST /group/on": {"group": "group-alias"},
                     "POST /group/off": {"group": "group-alias"},
                     "POST /group/brightness": {"group": "group-alias", "brightness": "1-100"},
+                    "POST /group/preset": {"group": "group-alias", "preset": "night"},
+                    "POST /group/state/apply": {"group": "group-alias", "brightness": 40, "color_temperature": 2700},
                     "POST /scene/run": {"scene": "scene-alias"},
                     "POST /scene/evening": {},
                     "POST /scene/off": {},
@@ -219,6 +235,63 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                 "default_device_alias": config.get("default_device_alias"),
                 "runtime_ready": runtime_ready,
                 "cloud_backed": True,
+            },
+        )
+
+    def handle_config_summary(self) -> None:
+        config = control.load_local_config(self.server.control_args.config)
+        devices = config.get("devices", {})
+        device_summary = {}
+        if isinstance(devices, dict):
+            for alias, entry in devices.items():
+                if isinstance(alias, str) and isinstance(entry, dict):
+                    device_summary[alias] = {
+                        "device_model": entry.get("device_model", control.DEFAULT_DEVICE_MODEL),
+                        "has_device_mac": bool(entry.get("device_mac")),
+                        "presets": control.get_device_presets(config, alias),
+                    }
+        groups = config.get("groups", {})
+        group_summary = {}
+        if isinstance(groups, dict):
+            for alias, entry in groups.items():
+                if isinstance(alias, str) and isinstance(entry, dict):
+                    members = entry.get("devices")
+                    group_summary[alias] = members if isinstance(members, list) else []
+        scenes = config.get("scenes", {})
+        scene_summary = {}
+        if isinstance(scenes, dict):
+            for alias, entry in scenes.items():
+                if isinstance(alias, str) and isinstance(entry, dict):
+                    scene_summary[alias] = {
+                        "target": entry.get("target"),
+                        "command_count": len(entry.get("commands", [])) if isinstance(entry.get("commands"), list) else 0,
+                    }
+        self.write_json(
+            HTTPStatus.OK,
+            {
+                "ok": True,
+                "default_device_alias": config.get("default_device_alias"),
+                "devices": device_summary,
+                "groups": group_summary,
+                "scenes": scene_summary,
+                "presets": control.get_presets(config),
+                "has_access_token": bool(config.get("access_token")),
+                "has_phone_id": bool(config.get("phone_id")),
+            },
+        )
+
+    def handle_reload_config(self) -> None:
+        config = control.load_local_config(self.server.control_args.config)
+        self.write_json(
+            HTTPStatus.OK,
+            {
+                "ok": True,
+                "reloaded": True,
+                "config_path": str(self.server.control_args.config),
+                "default_device_alias": config.get("default_device_alias"),
+                "device_count": len(config.get("devices", {})) if isinstance(config.get("devices"), dict) else 0,
+                "group_count": len(config.get("groups", {})) if isinstance(config.get("groups"), dict) else 0,
+                "scene_count": len(config.get("scenes", {})) if isinstance(config.get("scenes"), dict) else 0,
             },
         )
 
@@ -336,6 +409,85 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
         if not isinstance(brightness, int):
             raise ValueError("brightness must be an integer between 1 and 100")
         self.handle_group_command(group, "brightness", brightness)
+
+    def handle_group_preset(self, query: str, body: dict) -> None:
+        group = self.resolve_group_alias(query, body)
+        if not group:
+            raise ValueError("group is required")
+        preset_name = body.get("preset")
+        if not isinstance(preset_name, str) or not preset_name:
+            raise ValueError("preset is required")
+        config = control.load_local_config(self.server.control_args.config)
+        members = control.get_group_members(config, group)
+        results = []
+        overall_ok = True
+        for alias in members:
+            brightness = self.get_preset_brightness_for_device(preset_name, alias)
+            args = make_control_args(self.server.control_args, "brightness", brightness)
+            args.device = alias
+            try:
+                status_code, response_text, payload = control.perform_command(args)
+                response_json = json.loads(response_text)
+            except json.JSONDecodeError:
+                response_json = {"raw_response": response_text}
+                status_code = 502
+            except Exception as exc:
+                results.append({"device": alias, "ok": False, "error": str(exc)})
+                overall_ok = False
+                continue
+            item_ok = 200 <= status_code < 300 and response_json.get("msg") == "SUCCESS"
+            overall_ok = overall_ok and item_ok
+            results.append(
+                {
+                    "device": alias,
+                    "ok": item_ok,
+                    "preset": preset_name,
+                    "value": brightness,
+                    "wyze_status": status_code,
+                    "request": control.redact_payload(payload),
+                    "wyze_response": response_json,
+                }
+            )
+        self.write_json(
+            HTTPStatus.OK if overall_ok else HTTPStatus.BAD_GATEWAY,
+            {
+                "ok": overall_ok,
+                "group": group,
+                "preset": preset_name,
+                "cloud_backed": True,
+                "results": results,
+            },
+        )
+
+    def handle_group_state_apply(self, query: str, body: dict) -> None:
+        group = self.resolve_group_alias(query, body)
+        if not group:
+            raise ValueError("group is required")
+        config = control.load_local_config(self.server.control_args.config)
+        members = control.get_group_members(config, group)
+        properties = self.build_state_apply_properties(body)
+        results = []
+        overall_ok = True
+        for alias in members:
+            assignments = [{"pid": item["pid"], "pvalue": item["pvalue"]} for item in properties]
+            try:
+                result = self.execute_properties_for_target(alias, assignments)
+            except Exception as exc:
+                results.append({"device": alias, "ok": False, "error": str(exc)})
+                overall_ok = False
+                continue
+            overall_ok = overall_ok and result.get("ok", False)
+            results.append(result)
+        self.write_json(
+            HTTPStatus.OK if overall_ok else HTTPStatus.BAD_GATEWAY,
+            {
+                "ok": overall_ok,
+                "group": group,
+                "properties": properties,
+                "cloud_backed": True,
+                "results": results,
+            },
+        )
 
     def handle_scene_post(self, path: str, body: dict) -> None:
         scene = body.get("scene")
@@ -485,6 +637,9 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
         )
 
     def handle_state_apply(self, device: str | None, body: dict) -> None:
+        self.handle_properties(device, self.build_state_apply_properties(body))
+
+    def build_state_apply_properties(self, body: dict) -> list[dict[str, str]]:
         properties: list[dict[str, str]] = []
         power = body.get("power")
         brightness = body.get("brightness")
@@ -520,7 +675,7 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
             else:
                 seen[pid] = len(deduped)
                 deduped.append(item)
-        self.handle_properties(device, deduped)
+        return deduped
 
     def handle_toggle(self, device: str | None) -> None:
         args = make_control_args(self.server.control_args, "state")
