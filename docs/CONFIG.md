@@ -21,13 +21,27 @@ Copy-Item .\local_config.example.json .\local_config.json
 
 For a working setup you usually need:
 
-- `default_device_alias`
-- `devices.<alias>.device_mac`
-- `devices.<alias>.device_model`
+- `device_mac`
 - `access_token`
 - `phone_id`
 
 Everything else is either already defaulted or is your own local convenience structure.
+
+Absolute minimum working example:
+
+```json
+{
+  "device_mac": "AABBCCDDEEFF",
+  "access_token": "replace-with-your-live-token",
+  "phone_id": "any-stable-string-or-guid"
+}
+```
+
+For the validated original white bulb path in this repo:
+
+- `device_model` is usually not required because the code defaults it to `WLPA19`
+- `phone_id` did not appear to be strictly enforced in live testing
+- a stable arbitrary string or GUID worked for `phone_id`
 
 ## Advanced Override Fields
 
@@ -76,6 +90,8 @@ For the original white Wyze Bulb used in this project, use:
 
 If you have a different Wyze light model, the correct model string may differ.
 
+For the validated original white bulb path, this field is optional because the code defaults it to `WLPA19`.
+
 Ways to find it:
 
 1. instrumented Wyze app request logs
@@ -107,6 +123,16 @@ If you already captured a Wyze hook log, look for a JSON body containing:
 - `phone_id`
 - `device_mac`
 - `device_model`
+
+Live test result for this repo's validated path:
+
+- a random `phone_id` still worked
+
+So the fastest setup is:
+
+- use the real `access_token`
+- use the real `device_mac`
+- use any stable arbitrary string or GUID for `phone_id` if needed
 
 ## Optional Local Structures
 
@@ -202,15 +228,9 @@ Bundle one or more commands against a device or group:
 
 ```json
 {
-  "default_device_alias": "living-room",
-  "devices": {
-    "living-room": {
-      "device_mac": "AABBCCDDEEFF",
-      "device_model": "WLPA19"
-    }
-  },
+  "device_mac": "AABBCCDDEEFF",
   "access_token": "replace-with-your-live-token",
-  "phone_id": "replace-with-your-phone-id"
+  "phone_id": "any-stable-string-or-guid"
 }
 ```
 

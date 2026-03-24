@@ -108,14 +108,30 @@ Copy-Item .\local_config.example.json .\local_config.json
 
 Then edit `local_config.json` with your real values.
 
-Minimum practical fields:
+Absolute minimum fields:
 
-- `default_device_alias`
-- `devices`
+- `device_mac`
 - `access_token`
 - `phone_id`
 
 Everything else is optional.
+
+Absolute minimum working example:
+
+```json
+{
+  "device_mac": "A1B2C3D4E5F6",
+  "access_token": "replace-with-your-live-token",
+  "phone_id": "any-stable-string-or-guid"
+}
+```
+
+Test-based shortcut:
+
+- use the real `device_mac`
+- use the real `access_token`
+- for the validated `WLPA19` path, a random `phone_id` worked in live testing
+- use any stable string or GUID if you do not have the original phone value
 
 The file `local_config.json` is ignored by git.
 
@@ -127,11 +143,11 @@ For a focused setup guide, see:
 
 You need two required categories of data, plus optional convenience structures:
 
-1. device alias and model information
+1. device information
 2. Wyze session information
 3. optional groups / presets / scenes
 
-#### `devices.<alias>.device_mac`
+#### `device_mac`
 
 This is the bulb MAC without separators.
 
@@ -150,13 +166,18 @@ arp -a
 
 Use the bulb's MAC in `AABBCCDDEEFF` form, not `AA-BB-CC-DD-EE-FF`.
 
-#### `devices.<alias>.device_model`
+#### `device_model`
 
 For the original white Wyze Bulb used in this project, the model is:
 
 - `WLPA19`
 
-If you are using a different Wyze bulb model, you must discover the matching model string from your own app traffic or device metadata.
+For the validated original white bulb path in this repo, you usually do not need to set `device_model` at all because the code defaults it to `WLPA19`.
+
+Only set it if:
+
+- you are targeting a different Wyze bulb model
+- you want to make the config explicit
 
 #### `access_token`
 
@@ -187,6 +208,12 @@ Fallback behavior:
 - if `phone_id` is not present in `local_config.json`
 - and a compatible hook log is provided
 - the tool can extract it automatically
+
+Live test result for this repo's validated path:
+
+- a random `phone_id` still worked
+
+So for fastest setup, `phone_id` can be any stable string or GUID.
 
 #### `app_name`, `app_version`, `phone_system_type`, `sc`, `sv`
 
