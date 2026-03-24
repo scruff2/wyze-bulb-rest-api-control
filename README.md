@@ -29,6 +29,9 @@ Validated bulb controls:
 - on
 - off
 - brightness
+- state read
+- color temperature
+- generic property writes
 
 Validated local REST endpoints:
 
@@ -36,6 +39,7 @@ Validated local REST endpoints:
 - `GET /devices`
 - `GET /groups`
 - `GET /scenes`
+- `GET /state`
 - `POST /on`
 - `POST /off`
 - `POST /night`
@@ -48,6 +52,8 @@ Validated local REST endpoints:
 - `POST /scene/evening`
 - `POST /scene/off`
 - `POST /brightness`
+- `POST /color-temperature`
+- `POST /properties`
 
 Default local bind:
 
@@ -298,6 +304,25 @@ curl -X POST http://127.0.0.1:8787/brightness \
   -d '{"brightness":40}'
 ```
 
+Color temperature:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/color-temperature -ContentType 'application/json' -Body '{"color_temperature":2700}'
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/color-temperature -ContentType 'application/json' -Body '{"color_temperature":6500}'
+```
+
+```bash
+curl -X POST http://127.0.0.1:8787/color-temperature \
+  -H "Content-Type: application/json" \
+  -d '{"color_temperature":2700}'
+```
+
+Generic property write:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/properties -ContentType 'application/json' -Body '{"device":"living-room","properties":[{"pid":"P1502","pvalue":"2700"}]}'
+```
+
 List configured aliases:
 
 ```powershell
@@ -322,6 +347,17 @@ List configured scenes:
 
 ```powershell
 Invoke-RestMethod -Method Get http://127.0.0.1:8787/scenes
+```
+
+Read current state:
+
+```powershell
+Invoke-RestMethod -Method Get 'http://127.0.0.1:8787/state'
+Invoke-RestMethod -Method Get 'http://127.0.0.1:8787/state?device=living-room&pid=P3&pid=P1501&pid=P1502'
+```
+
+```bash
+curl 'http://127.0.0.1:8787/state?device=living-room&pid=P3&pid=P1501&pid=P1502'
 ```
 
 Run a group action:
@@ -373,6 +409,26 @@ Brightness:
 
 ```powershell
 python .\wyze_light_control.py brightness 40
+```
+
+Color temperature:
+
+```powershell
+python .\wyze_light_control.py color-temperature 2700
+python .\wyze_light_control.py color-temperature 6500
+```
+
+Read current state:
+
+```powershell
+python .\wyze_light_control.py state
+python .\wyze_light_control.py state --pid P3 --pid P1501 --pid P1502
+```
+
+Generic property write:
+
+```powershell
+python .\wyze_light_control.py properties --property P1502=2700
 ```
 
 Dry run:

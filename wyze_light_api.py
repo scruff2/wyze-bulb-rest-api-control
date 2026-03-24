@@ -49,6 +49,8 @@ def make_control_args(server_args: argparse.Namespace, command: str, value: int 
         sv=server_args.sv,
         timeout=server_args.timeout,
         dry_run=False,
+        pid=[],
+        properties=[],
     )
 
 
@@ -69,6 +71,7 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                         "GET /devices": "list configured device aliases",
                         "GET /groups": "list configured groups",
                         "GET /scenes": "list configured scenes",
+                        "GET /state": {"device": "device-alias", "pid": ["P3", "P1501"]},
                         "POST /on": {},
                         "POST /off": {},
                         "POST /night": {},
@@ -81,6 +84,8 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                         "POST /scene/evening": {},
                         "POST /scene/off": {},
                         "POST /brightness": {"brightness": "1-100"},
+                        "POST /color-temperature": {"color_temperature": "2700-6500"},
+                        "POST /properties": {"properties": [{"pid": "P1502", "pvalue": "2700"}]},
                     },
                     "devices": sorted(list(config.get("devices", {}).keys())) if isinstance(config.get("devices"), dict) else [],
                     "groups": sorted(list(config.get("groups", {}).keys())) if isinstance(config.get("groups"), dict) else [],
@@ -110,6 +115,16 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                     "default_device_alias": config.get("default_device_alias"),
                 },
             )
+            return
+        if parsed.path == "/state":
+            query_params = parse_qs(parsed.query)
+            device = query_params.get("device", [None])[0]
+            pid_values = query_params.get("pid", [])
+            target_pid_list: list[str] = []
+            for item in pid_values:
+                if isinstance(item, str):
+                    target_pid_list.extend(part.strip() for part in item.split(",") if part.strip())
+            self.handle_state_query(device, target_pid_list)
             return
         if parsed.path == "/groups":
             config = control.load_local_config(self.server.control_args.config)
@@ -184,6 +199,20 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                     raise ValueError("brightness must be an integer between 1 and 100")
                 self.handle_command("brightness", brightness, device)
                 return
+            if parsed.path == "/color-temperature":
+                color_temperature = body.get("color_temperature")
+                if not isinstance(color_temperature, int):
+                    raise ValueError(
+                        f"color_temperature must be an integer between {control.DEFAULT_COLOR_TEMPERATURE_MIN} and {control.DEFAULT_COLOR_TEMPERATURE_MAX}"
+                    )
+                self.handle_command("color-temperature", color_temperature, device)
+                return
+            if parsed.path == "/properties":
+                properties = body.get("properties")
+                if not isinstance(properties, list) or not properties:
+                    raise ValueError("properties must be a non-empty list")
+                self.handle_properties(device, properties)
+                return
             self.write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
         except ValueError as exc:
             self.write_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": str(exc)})
@@ -252,6 +281,71 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                 "value": value,
                 "device": args.device,
                 "preset": preset_name,
+                "cloud_backed": True,
+                "request": control.redact_payload(payload),
+                "wyze_status": status_code,
+                "wyze_response": response_json,
+            },
+        )
+
+    def handle_state_query(self, device: str | None, target_pid_list: list[str]) -> None:
+        args = make_control_args(self.server.control_args, "state")
+        args.device = device or args.device
+        args.pid = target_pid_list
+        try:
+            status_code, response_text, payload = control.perform_state_query(args)
+            response_json = json.loads(response_text)
+        except json.JSONDecodeError:
+            response_json = {"raw_response": response_text}
+        except Exception as exc:
+            self.write_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+            return
+
+        self.write_json(
+            HTTPStatus.OK if 200 <= status_code < 300 else HTTPStatus.BAD_GATEWAY,
+            {
+                "ok": 200 <= status_code < 300,
+                "device": args.device,
+                "target_pid_list": target_pid_list or control.DEFAULT_TARGET_PID_LIST,
+                "cloud_backed": True,
+                "request": control.redact_payload(payload),
+                "wyze_status": status_code,
+                "wyze_response": response_json,
+            },
+        )
+
+    def handle_properties(self, device: str | None, properties: list[dict]) -> None:
+        assignments: list[str] = []
+        for item in properties:
+            if not isinstance(item, dict):
+                raise ValueError("each property entry must be an object")
+            pid = item.get("pid")
+            pvalue = item.get("pvalue")
+            if not isinstance(pid, str) or not pid:
+                raise ValueError("each property entry must include string pid")
+            if pvalue is None:
+                raise ValueError("each property entry must include pvalue")
+            assignments.append(f"{pid}={pvalue}")
+
+        args = make_control_args(self.server.control_args, "properties")
+        args.device = device or args.device
+        args.properties = assignments
+        try:
+            status_code, response_text, payload = control.perform_command(args)
+            response_json = json.loads(response_text)
+        except json.JSONDecodeError:
+            response_json = {"raw_response": response_text}
+        except Exception as exc:
+            self.write_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
+            return
+
+        self.write_json(
+            HTTPStatus.OK if 200 <= status_code < 300 else HTTPStatus.BAD_GATEWAY,
+            {
+                "ok": 200 <= status_code < 300,
+                "command": "properties",
+                "device": args.device,
+                "properties": properties,
                 "cloud_backed": True,
                 "request": control.redact_payload(payload),
                 "wyze_status": status_code,

@@ -32,6 +32,29 @@ paths:
       responses:
         '200':
           description: OK
+  /state:
+    get:
+      summary: Fetch current Wyze property state for a device
+      parameters:
+        - in: query
+          name: device
+          schema:
+            type: string
+          required: false
+          description: Optional configured device alias
+        - in: query
+          name: pid
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          required: false
+          description: Optional property IDs to request; defaults to the common light state IDs
+      responses:
+        '200':
+          description: OK
   /on:
     post:
       summary: Turn on a device
@@ -101,6 +124,30 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/BrightnessTarget'
+      responses:
+        '200':
+          description: OK
+  /color-temperature:
+    post:
+      summary: Set explicit white color temperature for a device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+                      $ref: '#/components/schemas/ColorTemperatureTarget'
+      responses:
+        '200':
+          description: OK
+  /properties:
+    post:
+      summary: Set one or more raw Wyze properties for a device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PropertyListTarget'
       responses:
         '200':
           description: OK
@@ -207,6 +254,45 @@ components:
           minimum: 1
           maximum: 100
           example: 25
+    ColorTemperatureTarget:
+      type: object
+      required:
+        - color_temperature
+      properties:
+        device:
+          type: string
+          example: living-room
+        color_temperature:
+          type: integer
+          minimum: 2700
+          maximum: 6500
+          example: 2700
+    PropertyListTarget:
+      type: object
+      required:
+        - properties
+      properties:
+        device:
+          type: string
+          example: living-room
+        properties:
+          type: array
+          items:
+            $ref: '#/components/schemas/PropertyAssignment'
+    PropertyAssignment:
+      type: object
+      required:
+        - pid
+        - pvalue
+      properties:
+        pid:
+          type: string
+          example: P1502
+        pvalue:
+          oneOf:
+            - type: string
+            - type: integer
+          example: "2700"
     SceneTarget:
       type: object
       required:
