@@ -110,8 +110,8 @@ Then edit `local_config.json` with your real values.
 
 Absolute minimum fields:
 
-- `device_mac`
-- `access_token`
+- `device_mac` (MAC address of the light bulb)
+- `access_token` (Read the instructions to understand how to get this token)
 - `phone_id` (This can be an arbitrary ID)
 
 Everything else is optional.
