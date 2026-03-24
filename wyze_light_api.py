@@ -81,6 +81,9 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
         if parsed.path == "/state":
             self.handle_state_get(parsed.query)
             return
+        if parsed.path == "/state/raw":
+            self.handle_state_raw_get(parsed.query)
+            return
         if parsed.path == "/groups":
             self.handle_groups()
             return
@@ -121,8 +124,14 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
             if parsed.path == "/reload-config":
                 self.handle_reload_config()
                 return
+            if parsed.path == "/state/query":
+                self.handle_state_query_post(device, body)
+                return
             if parsed.path in ("/group/on", "/group/off", "/group/brightness"):
                 self.handle_group_post(parsed.query, body, parsed.path)
+                return
+            if parsed.path == "/group/toggle":
+                self.handle_group_toggle(parsed.query, body)
                 return
             if parsed.path == "/group/preset":
                 self.handle_group_preset(parsed.query, body)
@@ -187,6 +196,7 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                     "GET /scenes": "list configured scenes",
                     "GET /scene/<name>": "get a configured scene definition",
                     "GET /state": {"device": "device-alias", "pid": ["P3", "P1501"]},
+                    "GET /state/raw": {"device": "device-alias", "pid": ["P3", "P1501"]},
                     "POST /on": {},
                     "POST /off": {},
                     "POST /toggle": {},
@@ -195,8 +205,10 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                     "POST /bright": {},
                     "POST /preset/run": {"preset": "night", "device": "device-alias"},
                     "POST /reload-config": {},
+                    "POST /state/query": {"device": "device-alias", "pid": ["P3", "P1501"]},
                     "POST /group/on": {"group": "group-alias"},
                     "POST /group/off": {"group": "group-alias"},
+                    "POST /group/toggle": {"group": "group-alias"},
                     "POST /group/brightness": {"group": "group-alias", "brightness": "1-100"},
                     "POST /group/preset": {"group": "group-alias", "preset": "night"},
                     "POST /group/state/apply": {"group": "group-alias", "brightness": 40, "color_temperature": 2700},
@@ -352,6 +364,16 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                 target_pid_list.extend(part.strip() for part in item.split(",") if part.strip())
         self.handle_state_query(device, target_pid_list)
 
+    def handle_state_raw_get(self, query: str) -> None:
+        query_params = parse_qs(query)
+        device = query_params.get("device", [None])[0]
+        pid_values = query_params.get("pid", [])
+        target_pid_list: list[str] = []
+        for item in pid_values:
+            if isinstance(item, str):
+                target_pid_list.extend(part.strip() for part in item.split(",") if part.strip())
+        self.handle_state_query(device, target_pid_list, include_raw=True)
+
     def handle_groups(self) -> None:
         config = control.load_local_config(self.server.control_args.config)
         groups = config.get("groups", {})
@@ -409,6 +431,36 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
         if not isinstance(brightness, int):
             raise ValueError("brightness must be an integer between 1 and 100")
         self.handle_group_command(group, "brightness", brightness)
+
+    def handle_group_toggle(self, query: str, body: dict) -> None:
+        group = self.resolve_group_alias(query, body)
+        if not group:
+            raise ValueError("group is required")
+        config = control.load_local_config(self.server.control_args.config)
+        members = control.get_group_members(config, group)
+        results = []
+        overall_ok = True
+        for alias in members:
+            try:
+                current_power = self.fetch_power_state(alias)
+                next_command = "off" if current_power == "1" else "on"
+                result = self.execute_for_target(alias, next_command, None)
+                result["command"] = next_command
+            except Exception as exc:
+                results.append({"device": alias, "ok": False, "error": str(exc)})
+                overall_ok = False
+                continue
+            overall_ok = overall_ok and result.get("ok", False)
+            results.append(result)
+        self.write_json(
+            HTTPStatus.OK if overall_ok else HTTPStatus.BAD_GATEWAY,
+            {
+                "ok": overall_ok,
+                "group": group,
+                "cloud_backed": True,
+                "results": results,
+            },
+        )
 
     def handle_group_preset(self, query: str, body: dict) -> None:
         group = self.resolve_group_alias(query, body)
@@ -499,6 +551,20 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
             raise ValueError("scene is required")
         self.handle_scene(scene)
 
+    def handle_state_query_post(self, device: str | None, body: dict) -> None:
+        pid_values = body.get("pid", [])
+        if pid_values is None:
+            pid_values = []
+        if not isinstance(pid_values, list):
+            raise ValueError("pid must be a list of property IDs")
+        target_pid_list = []
+        for item in pid_values:
+            if not isinstance(item, str) or not item.strip():
+                raise ValueError("pid entries must be non-empty strings")
+            target_pid_list.append(item.strip())
+        include_raw = bool(body.get("raw"))
+        self.handle_state_query(device, target_pid_list, include_raw=include_raw)
+
     def read_json_body(self) -> dict:
         content_length = int(self.headers.get("Content-Length", "0"))
         if content_length == 0:
@@ -571,7 +637,7 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
             },
         )
 
-    def handle_state_query(self, device: str | None, target_pid_list: list[str]) -> None:
+    def handle_state_query(self, device: str | None, target_pid_list: list[str], include_raw: bool = False) -> None:
         args = make_control_args(self.server.control_args, "state")
         args.device = device or args.device
         args.pid = target_pid_list
@@ -584,17 +650,20 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
             self.write_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
 
+        response_payload = {
+            "ok": 200 <= status_code < 300,
+            "device": args.device,
+            "target_pid_list": target_pid_list or control.DEFAULT_TARGET_PID_LIST,
+            "cloud_backed": True,
+            "request": control.redact_payload(payload),
+            "wyze_status": status_code,
+            "wyze_response": response_json,
+        }
+        if include_raw:
+            response_payload["raw_response"] = response_text
         self.write_json(
             HTTPStatus.OK if 200 <= status_code < 300 else HTTPStatus.BAD_GATEWAY,
-            {
-                "ok": 200 <= status_code < 300,
-                "device": args.device,
-                "target_pid_list": target_pid_list or control.DEFAULT_TARGET_PID_LIST,
-                "cloud_backed": True,
-                "request": control.redact_payload(payload),
-                "wyze_status": status_code,
-                "wyze_response": response_json,
-            },
+            response_payload,
         )
 
     def handle_properties(self, device: str | None, properties: list[dict]) -> None:
@@ -678,26 +747,26 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
         return deduped
 
     def handle_toggle(self, device: str | None) -> None:
-        args = make_control_args(self.server.control_args, "state")
-        args.device = device or args.device
-        args.pid = ["P3"]
         try:
-            status_code, response_text, _ = control.perform_state_query(args)
-            response_json = json.loads(response_text)
-        except json.JSONDecodeError as exc:
-            raise ValueError("unable to parse current state") from exc
+            current_power = self.fetch_power_state(device or self.server.control_args.device)
         except Exception as exc:
             self.write_json(HTTPStatus.BAD_GATEWAY, {"ok": False, "error": str(exc)})
             return
-        if not 200 <= status_code < 300:
-            self.write_json(
-                HTTPStatus.BAD_GATEWAY,
-                {"ok": False, "error": "failed to read current power state", "wyze_status": status_code, "wyze_response": response_json},
-            )
-            return
-        current_power = self.extract_power_state(response_json)
         next_command = "off" if current_power == "1" else "on"
         self.handle_command(next_command, None, device)
+
+    def fetch_power_state(self, device: str | None) -> str | None:
+        args = make_control_args(self.server.control_args, "state")
+        args.device = device or args.device
+        args.pid = ["P3"]
+        status_code, response_text, _ = control.perform_state_query(args)
+        try:
+            response_json = json.loads(response_text)
+        except json.JSONDecodeError as exc:
+            raise ValueError("unable to parse current state") from exc
+        if not 200 <= status_code < 300:
+            raise ValueError("failed to read current power state")
+        return self.extract_power_state(response_json)
 
     def extract_power_state(self, response_json: dict) -> str | None:
         data = response_json.get("data")

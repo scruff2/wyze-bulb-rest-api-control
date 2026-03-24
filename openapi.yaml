@@ -99,6 +99,29 @@ paths:
       responses:
         '200':
           description: OK
+  /state/raw:
+    get:
+      summary: Fetch current Wyze property state and include the raw response body
+      parameters:
+        - in: query
+          name: device
+          schema:
+            type: string
+          required: false
+          description: Optional configured device alias
+        - in: query
+          name: pid
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          required: false
+          description: Optional property IDs to request; defaults to the common light state IDs
+      responses:
+        '200':
+          description: OK
   /on:
     post:
       summary: Turn on a device
@@ -189,6 +212,18 @@ paths:
       responses:
         '200':
           description: OK
+  /state/query:
+    post:
+      summary: Query current Wyze property state with a JSON body
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateQueryTarget'
+      responses:
+        '200':
+          description: OK
   /brightness:
     post:
       summary: Set explicit brightness for a device
@@ -264,6 +299,18 @@ paths:
   /group/off:
     post:
       summary: Turn off a configured group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupTarget'
+      responses:
+        '200':
+          description: OK
+  /group/toggle:
+    post:
+      summary: Toggle each device in a configured group based on its current power state
       requestBody:
         required: true
         content:
@@ -385,6 +432,20 @@ components:
         group:
           type: string
           example: all
+    StateQueryTarget:
+      type: object
+      properties:
+        device:
+          type: string
+          example: living-room
+        pid:
+          type: array
+          items:
+            type: string
+          example: [P3, P1501, P1502]
+        raw:
+          type: boolean
+          example: false
     GroupBrightnessTarget:
       type: object
       required:
