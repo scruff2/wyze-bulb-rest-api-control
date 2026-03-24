@@ -18,6 +18,25 @@
       ]
     }
   },
+  "scenes": {
+    "evening": {
+      "target": "all",
+      "commands": [
+        {
+          "command": "brightness",
+          "value": 25
+        }
+      ]
+    },
+    "off": {
+      "target": "all",
+      "commands": [
+        {
+          "command": "off"
+        }
+      ]
+    }
+  },
   "presets": {
     "night": 5,
     "dim": 15,

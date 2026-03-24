@@ -389,6 +389,15 @@ def get_group_members(config: dict, alias: str) -> list[str]:
     return normalized
 
 
+def get_scene_config(config: dict, alias: str | None) -> dict:
+    scenes = config.get("scenes")
+    if not isinstance(scenes, dict):
+        return {}
+    if alias and isinstance(scenes.get(alias), dict):
+        return scenes[alias]
+    return {}
+
+
 def send_request(payload: dict, timeout: float) -> tuple[int, str]:
     data = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     request = urllib.request.Request(

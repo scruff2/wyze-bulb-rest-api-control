@@ -13,6 +13,11 @@ What this project does not do:
 - it does not provide cloudless control
 - it still depends on Wyze cloud service and a valid Wyze session
 
+This project is best understood as a local automation bridge:
+
+- your automations talk to a local REST API
+- this tool translates those requests into Wyze cloud-backed bulb commands
+
 ## Current Capability
 
 Validated bulb controls:
@@ -26,6 +31,7 @@ Validated local REST endpoints:
 - `GET /status`
 - `GET /devices`
 - `GET /groups`
+- `GET /scenes`
 - `POST /on`
 - `POST /off`
 - `POST /night`
@@ -34,6 +40,9 @@ Validated local REST endpoints:
 - `POST /group/on`
 - `POST /group/off`
 - `POST /group/brightness`
+- `POST /scene/run`
+- `POST /scene/evening`
+- `POST /scene/off`
 - `POST /brightness`
 
 Default local bind:
@@ -58,6 +67,8 @@ Default local bind:
   - install a Windows scheduled task to start the API at logon
 - `uninstall_startup_task.ps1`
   - remove the scheduled task
+- `openapi.yaml`
+  - minimal OpenAPI description of the local HTTP API
 
 ## Setup
 
@@ -112,10 +123,20 @@ Health:
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8787/status | Select-Object -ExpandProperty Content
 ```
 
+`curl` health example:
+
+```bash
+curl http://127.0.0.1:8787/status
+```
+
 On:
 
 ```powershell
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/on
+```
+
+```bash
+curl -X POST http://127.0.0.1:8787/on
 ```
 
 Off:
@@ -138,6 +159,12 @@ Brightness:
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/brightness -ContentType 'application/json' -Body '{"brightness":40}'
 ```
 
+```bash
+curl -X POST http://127.0.0.1:8787/brightness \
+  -H "Content-Type: application/json" \
+  -d '{"brightness":40}'
+```
+
 List configured aliases:
 
 ```powershell
@@ -158,11 +185,25 @@ List configured groups:
 Invoke-RestMethod -Method Get http://127.0.0.1:8787/groups
 ```
 
+List configured scenes:
+
+```powershell
+Invoke-RestMethod -Method Get http://127.0.0.1:8787/scenes
+```
+
 Run a group action:
 
 ```powershell
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/group/off -ContentType 'application/json' -Body '{"group":"all"}'
 Invoke-RestMethod -Method Post http://127.0.0.1:8787/group/brightness -ContentType 'application/json' -Body '{"group":"all","brightness":25}'
+```
+
+Run a scene:
+
+```powershell
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/scene/evening
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/scene/off
+Invoke-RestMethod -Method Post http://127.0.0.1:8787/scene/run -ContentType 'application/json' -Body '{"scene":"evening"}'
 ```
 
 ## Start At Logon
@@ -231,6 +272,8 @@ The control code resolves values in this order:
   - named aliases like `living-room`
 - `groups`
   - named collections like `all`
+- `scenes`
+  - named collections of commands applied to a configured device or group
 - `presets`
   - shared defaults for `night`, `dim`, `bright`
 
@@ -247,6 +290,32 @@ Each device can also override presets locally:
         "dim": 12,
         "bright": 90
       }
+    }
+  }
+}
+```
+
+Scenes look like this:
+
+```json
+{
+  "scenes": {
+    "evening": {
+      "target": "all",
+      "commands": [
+        {
+          "command": "brightness",
+          "value": 25
+        }
+      ]
+    },
+    "off": {
+      "target": "all",
+      "commands": [
+        {
+          "command": "off"
+        }
+      ]
     }
   }
 }
@@ -278,6 +347,12 @@ Keep local-only values in:
 - `local_config.json`
 
 If you use a captured hook log for fallback, treat it as sensitive.
+
+## API Description
+
+For tooling and external integration, see:
+
+- `openapi.yaml`
 
 ## Limitation
 

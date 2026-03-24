@@ -1,0 +1,217 @@
+openapi: 3.0.3
+info:
+  title: wyze-bulb-rest-api-control
+  version: 1.0.0
+  description: |
+    Local REST API for controlling Wyze bulbs from a computer.
+    The API is local-facing, but the backend command path is still Wyze cloud-backed.
+servers:
+  - url: http://127.0.0.1:8787
+paths:
+  /status:
+    get:
+      summary: Health and capability summary
+      responses:
+        '200':
+          description: OK
+  /devices:
+    get:
+      summary: List configured device aliases
+      responses:
+        '200':
+          description: OK
+  /groups:
+    get:
+      summary: List configured groups
+      responses:
+        '200':
+          description: OK
+  /scenes:
+    get:
+      summary: List configured scenes
+      responses:
+        '200':
+          description: OK
+  /on:
+    post:
+      summary: Turn on a device
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceTarget'
+      responses:
+        '200':
+          description: OK
+  /off:
+    post:
+      summary: Turn off a device
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceTarget'
+      responses:
+        '200':
+          description: OK
+  /night:
+    post:
+      summary: Apply the night preset to a device
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceTarget'
+      responses:
+        '200':
+          description: OK
+  /dim:
+    post:
+      summary: Apply the dim preset to a device
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceTarget'
+      responses:
+        '200':
+          description: OK
+  /bright:
+    post:
+      summary: Apply the bright preset to a device
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceTarget'
+      responses:
+        '200':
+          description: OK
+  /brightness:
+    post:
+      summary: Set explicit brightness for a device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrightnessTarget'
+      responses:
+        '200':
+          description: OK
+  /group/on:
+    post:
+      summary: Turn on a configured group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupTarget'
+      responses:
+        '200':
+          description: OK
+  /group/off:
+    post:
+      summary: Turn off a configured group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupTarget'
+      responses:
+        '200':
+          description: OK
+  /group/brightness:
+    post:
+      summary: Set explicit brightness for a configured group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupBrightnessTarget'
+      responses:
+        '200':
+          description: OK
+  /scene/run:
+    post:
+      summary: Run a configured scene by name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SceneTarget'
+      responses:
+        '200':
+          description: OK
+  /scene/evening:
+    post:
+      summary: Run the configured evening scene
+      responses:
+        '200':
+          description: OK
+  /scene/off:
+    post:
+      summary: Run the configured off scene
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    DeviceTarget:
+      type: object
+      properties:
+        device:
+          type: string
+          example: living-room
+    BrightnessTarget:
+      type: object
+      required:
+        - brightness
+      properties:
+        device:
+          type: string
+          example: living-room
+        brightness:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 40
+    GroupTarget:
+      type: object
+      required:
+        - group
+      properties:
+        group:
+          type: string
+          example: all
+    GroupBrightnessTarget:
+      type: object
+      required:
+        - group
+        - brightness
+      properties:
+        group:
+          type: string
+          example: all
+        brightness:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 25
+    SceneTarget:
+      type: object
+      required:
+        - scene
+      properties:
+        scene:
+          type: string
+          example: evening

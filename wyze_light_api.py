@@ -68,6 +68,7 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                         "GET /status": "health check",
                         "GET /devices": "list configured device aliases",
                         "GET /groups": "list configured groups",
+                        "GET /scenes": "list configured scenes",
                         "POST /on": {},
                         "POST /off": {},
                         "POST /night": {},
@@ -76,10 +77,14 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                         "POST /group/on": {"group": "group-alias"},
                         "POST /group/off": {"group": "group-alias"},
                         "POST /group/brightness": {"group": "group-alias", "brightness": "1-100"},
+                        "POST /scene/run": {"scene": "scene-alias"},
+                        "POST /scene/evening": {},
+                        "POST /scene/off": {},
                         "POST /brightness": {"brightness": "1-100"},
                     },
                     "devices": sorted(list(config.get("devices", {}).keys())) if isinstance(config.get("devices"), dict) else [],
                     "groups": sorted(list(config.get("groups", {}).keys())) if isinstance(config.get("groups"), dict) else [],
+                    "scenes": sorted(list(config.get("scenes", {}).keys())) if isinstance(config.get("scenes"), dict) else [],
                     "default_device_alias": config.get("default_device_alias"),
                     "presets": control.get_presets(config),
                     "cloud_backed": True,
@@ -117,6 +122,19 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                         payload[alias] = members if isinstance(members, list) else []
             self.write_json(HTTPStatus.OK, {"ok": True, "groups": payload})
             return
+        if parsed.path == "/scenes":
+            config = control.load_local_config(self.server.control_args.config)
+            scenes = config.get("scenes", {})
+            payload = {}
+            if isinstance(scenes, dict):
+                for alias, entry in scenes.items():
+                    if isinstance(alias, str) and isinstance(entry, dict):
+                        payload[alias] = {
+                            "target": entry.get("target"),
+                            "command_count": len(entry.get("commands", [])) if isinstance(entry.get("commands"), list) else 0,
+                        }
+            self.write_json(HTTPStatus.OK, {"ok": True, "scenes": payload})
+            return
         self.write_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "not found"})
 
     def do_POST(self) -> None:
@@ -149,6 +167,16 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
                 if not isinstance(brightness, int):
                     raise ValueError("brightness must be an integer between 1 and 100")
                 self.handle_group_command(group, "brightness", brightness)
+                return
+            if parsed.path in ("/scene/run", "/scene/evening", "/scene/off"):
+                scene = body.get("scene")
+                if parsed.path == "/scene/evening":
+                    scene = "evening"
+                if parsed.path == "/scene/off":
+                    scene = "off"
+                if not isinstance(scene, str) or not scene:
+                    raise ValueError("scene is required")
+                self.handle_scene(scene)
                 return
             if parsed.path == "/brightness":
                 brightness = body.get("brightness")
@@ -283,6 +311,96 @@ class WyzeLightApiHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(encoded)))
         self.end_headers()
         self.wfile.write(encoded)
+
+    def execute_for_target(self, target: str, command: str, value: int | None) -> dict:
+        config = control.load_local_config(self.server.control_args.config)
+        devices = config.get("devices", {})
+        groups = config.get("groups", {})
+
+        if isinstance(devices, dict) and target in devices:
+            args = make_control_args(self.server.control_args, command, value)
+            args.device = target
+            status_code, response_text, payload = control.perform_command(args)
+            response_json = json.loads(response_text)
+            item_ok = 200 <= status_code < 300 and response_json.get("msg") == "SUCCESS"
+            return {
+                "target_type": "device",
+                "target": target,
+                "ok": item_ok,
+                "wyze_status": status_code,
+                "request": control.redact_payload(payload),
+                "wyze_response": response_json,
+            }
+
+        if isinstance(groups, dict) and target in groups:
+            members = control.get_group_members(config, target)
+            results = []
+            overall_ok = True
+            for alias in members:
+                args = make_control_args(self.server.control_args, command, value)
+                args.device = alias
+                status_code, response_text, payload = control.perform_command(args)
+                response_json = json.loads(response_text)
+                item_ok = 200 <= status_code < 300 and response_json.get("msg") == "SUCCESS"
+                overall_ok = overall_ok and item_ok
+                results.append(
+                    {
+                        "device": alias,
+                        "ok": item_ok,
+                        "wyze_status": status_code,
+                        "request": control.redact_payload(payload),
+                        "wyze_response": response_json,
+                    }
+                )
+            return {
+                "target_type": "group",
+                "target": target,
+                "ok": overall_ok,
+                "results": results,
+            }
+
+        raise ValueError(f"target '{target}' is not a configured device or group")
+
+    def handle_scene(self, scene: str) -> None:
+        config = control.load_local_config(self.server.control_args.config)
+        scene_config = control.get_scene_config(config, scene)
+        if not scene_config:
+            raise ValueError(f"scene '{scene}' is not configured")
+
+        target = scene_config.get("target")
+        commands = scene_config.get("commands")
+        if not isinstance(target, str) or not target:
+            raise ValueError(f"scene '{scene}' is missing target")
+        if not isinstance(commands, list) or not commands:
+            raise ValueError(f"scene '{scene}' has no commands")
+
+        results = []
+        overall_ok = True
+        for item in commands:
+            if not isinstance(item, dict):
+                raise ValueError(f"scene '{scene}' contains an invalid command entry")
+            command = item.get("command")
+            value = item.get("value")
+            if command not in ("on", "off", "brightness"):
+                raise ValueError(f"scene '{scene}' contains unsupported command '{command}'")
+            if command == "brightness" and not isinstance(value, int):
+                raise ValueError(f"scene '{scene}' brightness command requires integer value")
+            result = self.execute_for_target(target, command, value if isinstance(value, int) else None)
+            overall_ok = overall_ok and result.get("ok", False)
+            result["command"] = command
+            result["value"] = value
+            results.append(result)
+
+        self.write_json(
+            HTTPStatus.OK if overall_ok else HTTPStatus.BAD_GATEWAY,
+            {
+                "ok": overall_ok,
+                "scene": scene,
+                "target": target,
+                "cloud_backed": True,
+                "results": results,
+            },
+        )
 
     def log_message(self, format: str, *args) -> None:
         return
