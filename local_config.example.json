@@ -3,50 +3,9 @@
   "devices": {
     "living-room": {
       "device_mac": "A1B2C3D4E5F6",
-      "device_model": "WLPA19",
-      "presets": {
-        "night": 3,
-        "dim": 12,
-        "bright": 90
-      }
+      "device_model": "WLPA19"
     }
   },
-  "groups": {
-    "all": {
-      "devices": [
-        "living-room"
-      ]
-    }
-  },
-  "scenes": {
-    "evening": {
-      "target": "all",
-      "commands": [
-        {
-          "command": "brightness",
-          "value": 25
-        }
-      ]
-    },
-    "off": {
-      "target": "all",
-      "commands": [
-        {
-          "command": "off"
-        }
-      ]
-    }
-  },
-  "presets": {
-    "night": 5,
-    "dim": 15,
-    "bright": 85
-  },
-  "app_name": "com.hualai",
-  "app_version": "3.10.6.753",
-  "phone_system_type": "2",
-  "sc": "a626948714654991afd3c0dbd7cdb901",
-  "sv": "ddb9baef0d7f44379cd6bfaa8698e682",
   "access_token": "replace-with-your-live-token",
   "phone_id": "replace-with-your-phone-id"
 }

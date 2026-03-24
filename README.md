@@ -108,14 +108,14 @@ Copy-Item .\local_config.example.json .\local_config.json
 
 Then edit `local_config.json` with your real values.
 
-Recommended fields:
+Minimum practical fields:
 
 - `default_device_alias`
 - `devices`
-- `groups`
-- `presets`
 - `access_token`
 - `phone_id`
+
+Everything else is optional.
 
 The file `local_config.json` is ignored by git.
 
@@ -125,7 +125,7 @@ For a focused setup guide, see:
 
 - [docs/CONFIG.md](docs/CONFIG.md)
 
-You need three categories of data:
+You need two required categories of data, plus optional convenience structures:
 
 1. device alias and model information
 2. Wyze session information
@@ -190,7 +190,9 @@ Fallback behavior:
 
 #### `app_name`, `app_version`, `phone_system_type`, `sc`, `sv`
 
-Defaults are already included in the example config and code for the validated original-bulb path.
+These are advanced override fields. Most users should not set them.
+
+The code already defaults them for the validated original-bulb path.
 
 You usually only need to change them if:
 

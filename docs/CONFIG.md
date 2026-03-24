@@ -21,12 +21,28 @@ Copy-Item .\local_config.example.json .\local_config.json
 
 For a working setup you usually need:
 
+- `default_device_alias`
 - `devices.<alias>.device_mac`
 - `devices.<alias>.device_model`
 - `access_token`
 - `phone_id`
 
 Everything else is either already defaulted or is your own local convenience structure.
+
+## Advanced Override Fields
+
+Most users do not need to set:
+
+- `app_name`
+- `app_version`
+- `phone_system_type`
+- `sc`
+- `sv`
+
+These are already defaulted in code for the validated original white Wyze Bulb path. Only override them if:
+
+- Wyze changes the API behavior
+- you are adapting the tool to a different Wyze product/app path
 
 ## Finding `device_mac`
 
