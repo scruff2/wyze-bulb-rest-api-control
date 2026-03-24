@@ -1,0 +1,11 @@
+local_config.json
+.env
+captures/
+logs/
+__pycache__/
+*.pcap
+*.pcapng
+*.etl
+*.idsig
+*.keystore
+*.jks
